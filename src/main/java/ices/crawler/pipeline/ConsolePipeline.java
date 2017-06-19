@@ -18,4 +18,9 @@ public class ConsolePipeline implements Pipeline{
             System.out.println(entry.getKey() + ":\t" + entry.getValue());
         }
     }
+
+	@Override
+	public String toString() {
+		return "ConsolePipeline";
+	}
 }

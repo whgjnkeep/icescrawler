@@ -11,8 +11,11 @@ import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.util.EntityUtils;
+import org.apache.log4j.Logger;
+import org.apache.log4j.spi.LoggerFactory;
 
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -21,6 +24,8 @@ import java.util.Map;
  */
 public class HttpClientDownloader extends AbstractDownloader{
 
+    private static final Logger LOGGER = Logger.getLogger(HttpClientDownloader.class);
+	
     private final Map<String, CloseableHttpClient> httpClients = new HashMap<String, CloseableHttpClient>();
 
     private HttpClientFactory httpClientFactory = new HttpClientFactory();
@@ -50,7 +55,7 @@ public class HttpClientDownloader extends AbstractDownloader{
         if(task == null || task.getTaskConfig() ==null){
             throw new NullPointerException("task or site can not be null");
         }
-
+        LOGGER.debug("downloading resultDocument: " + request.getUrl());
         CloseableHttpResponse httpResponse = null;
         CloseableHttpClient httpClient = getHttpClient(task.getTaskConfig());
 
@@ -65,9 +70,10 @@ public class HttpClientDownloader extends AbstractDownloader{
              resultDocument = handlerResponse(request, task.getTaskConfig().getCharset(),
                      httpResponse, task);
             onSuccess(request);
+            LOGGER.debug("downloading resultDocument success! " + resultDocument);
             return resultDocument;
         }catch(IOException e){
-            e.printStackTrace();
+        	LOGGER.warn("download resultDocument " + request.getUrl() +"error", e);
             onError(request);
             return resultDocument;
         }finally {
@@ -101,7 +107,8 @@ public class HttpClientDownloader extends AbstractDownloader{
             if(htmlCharset != null){
                 return new String(contentBytes, htmlCharset);
             }else{
-                // TODO
+                LOGGER.warn("Charset autodetect failed, use { "+ Charset.defaultCharset()+" } as charset. "
+                		+ "Please specify charset in Site.setCharset()");
                 return new String(contentBytes);
             }
         }else{
@@ -117,4 +124,9 @@ public class HttpClientDownloader extends AbstractDownloader{
     public void setThread(int threadNum) {
 
     }
+
+	@Override
+	public String toString() {
+		return "HttpClientDownloader";
+	}
 }

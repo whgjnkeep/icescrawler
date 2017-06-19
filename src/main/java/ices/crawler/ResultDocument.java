@@ -90,4 +90,20 @@ public class ResultDocument {
     public void setDownloadSuccess(boolean downloadSuccess) {
         this.downloadSuccess = downloadSuccess;
     }
+
+	@Override
+	public String toString() {
+		return "ResultDocument [" + 
+				", request=" + request + 
+	            ", downloadSuccess=" + downloadSuccess + 
+	            ", html=" + html + 
+	            ", rawText=" + rawText + 
+			    ", statusCode=" + statusCode + 
+			    ", headers=" + headers + 
+			    ", targetRequests=" + targetRequests + 
+			    ", resultItems=" + resultItems + 
+			    "]";
+	}
+ 
+    
 }

@@ -15,6 +15,7 @@ import org.apache.http.impl.client.*;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.impl.cookie.BasicClientCookie;
 import org.apache.http.protocol.HttpContext;
+import org.apache.log4j.Logger;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
@@ -31,100 +32,101 @@ import java.util.Map;
  */
 public class HttpClientFactory {
 
-    private PoolingHttpClientConnectionManager connectionManager;
+	private final static Logger LOGGER = Logger.getLogger(HttpClientFactory.class);
 
-    public HttpClientFactory() {
-        Registry<ConnectionSocketFactory> reg = RegistryBuilder.<ConnectionSocketFactory>create()
-                .register("http", PlainConnectionSocketFactory.INSTANCE)
-                .register("https", buildSSLConnectionSocketFactory())
-                .build();
-        connectionManager = new PoolingHttpClientConnectionManager(reg);
-        connectionManager.setDefaultMaxPerRoute(100);
-    }
+	private PoolingHttpClientConnectionManager connectionManager;
 
-    private SSLConnectionSocketFactory buildSSLConnectionSocketFactory() {
-        try {
-            return new SSLConnectionSocketFactory(createIgnoreVerifySSL()); // 优先绕过安全证书
-        } catch (KeyManagementException e) {
-            //
-        } catch (NoSuchAlgorithmException e) {
-            //
-        }
-        return SSLConnectionSocketFactory.getSocketFactory();
-    }
+	public HttpClientFactory() {
+		Registry<ConnectionSocketFactory> reg = RegistryBuilder.<ConnectionSocketFactory>create()
+				.register("http", PlainConnectionSocketFactory.INSTANCE)
+				.register("https", buildSSLConnectionSocketFactory()).build();
+		connectionManager = new PoolingHttpClientConnectionManager(reg);
+		connectionManager.setDefaultMaxPerRoute(100);
+	}
 
-    private SSLContext createIgnoreVerifySSL() throws NoSuchAlgorithmException, KeyManagementException {
-        // 实现一个X509TrustManager接口，用于绕过验证，不用修改里面的方法
-        X509TrustManager trustManager = new X509TrustManager() {
+	private SSLConnectionSocketFactory buildSSLConnectionSocketFactory() {
+		try {
+			return new SSLConnectionSocketFactory(createIgnoreVerifySSL()); // 优先绕过安全证书
+		} catch (KeyManagementException e) {
+			LOGGER.error("ssl connection fail", e);
+		} catch (NoSuchAlgorithmException e) {
+			LOGGER.error("ssl connection fail", e);
+		}
+		return SSLConnectionSocketFactory.getSocketFactory();
+	}
 
-            @Override
-            public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {
-            }
+	private SSLContext createIgnoreVerifySSL() throws NoSuchAlgorithmException, KeyManagementException {
+		// 实现一个X509TrustManager接口，用于绕过验证，不用修改里面的方法
+		X509TrustManager trustManager = new X509TrustManager() {
 
-            @Override
-            public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
-            }
+			@Override
+			public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+			}
 
-            @Override
-            public X509Certificate[] getAcceptedIssuers() {
-                return null;
-            }
+			@Override
+			public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+			}
 
-        };
+			@Override
+			public X509Certificate[] getAcceptedIssuers() {
+				return null;
+			}
 
-        SSLContext sc = SSLContext.getInstance("SSLv3");
-        sc.init(null, new TrustManager[]{trustManager}, null);
-        return sc;
-    }
+		};
 
-    public CloseableHttpClient createHttpClient(TaskConfig config){
-        final HttpClientBuilder httpClientBuilder = HttpClients.custom();
+		SSLContext sc = SSLContext.getInstance("SSLv3");
+		sc.init(null, new TrustManager[] { trustManager }, null);
+		return sc;
+	}
 
-        httpClientBuilder.setConnectionManager(connectionManager);
-        if(config.getUserAgent() != null){
-            httpClientBuilder.setUserAgent(config.getUserAgent());
-        }else{
-            httpClientBuilder.setUserAgent("");
-        }
-        if(config.isUseGzip()){
-            httpClientBuilder.addInterceptorFirst(new HttpRequestInterceptor() {
-                @Override
-                public void process(HttpRequest httpRequest, HttpContext httpContext) throws HttpException, IOException {
-                    if(!httpRequest.containsHeader("Accept-Encoding")){
-                        httpRequest.addHeader("Accept-Encoding", "gzip");
-                    }
-                }
-            });
-        }
-        httpClientBuilder.setRedirectStrategy(new CustomRedirectStrategy());
+	public CloseableHttpClient createHttpClient(TaskConfig config) {
+		final HttpClientBuilder httpClientBuilder = HttpClients.custom();
 
-        SocketConfig.Builder socketConfigBuilder = SocketConfig.custom();
-        socketConfigBuilder.setSoKeepAlive(config.isSocketKeepAlive());
-        socketConfigBuilder.setTcpNoDelay(config.isTcpNoDelay());
-        socketConfigBuilder.setSoTimeout(config.getSocketTimeout());
-        SocketConfig socketConfig = socketConfigBuilder.build();
+		httpClientBuilder.setConnectionManager(connectionManager);
+		if (config.getUserAgent() != null) {
+			httpClientBuilder.setUserAgent(config.getUserAgent());
+		} else {
+			httpClientBuilder.setUserAgent("");
+		}
+		if (config.isUseGzip()) {
+			httpClientBuilder.addInterceptorFirst(new HttpRequestInterceptor() {
+				@Override
+				public void process(HttpRequest httpRequest, HttpContext httpContext)
+						throws HttpException, IOException {
+					if (!httpRequest.containsHeader("Accept-Encoding")) {
+						httpRequest.addHeader("Accept-Encoding", "gzip");
+					}
+				}
+			});
+		}
+		httpClientBuilder.setRedirectStrategy(new CustomRedirectStrategy());
 
-        httpClientBuilder.setDefaultSocketConfig(socketConfig);
-        connectionManager.setDefaultSocketConfig(socketConfig);
+		SocketConfig.Builder socketConfigBuilder = SocketConfig.custom();
+		socketConfigBuilder.setSoKeepAlive(config.isSocketKeepAlive());
+		socketConfigBuilder.setTcpNoDelay(config.isTcpNoDelay());
+		socketConfigBuilder.setSoTimeout(config.getSocketTimeout());
+		SocketConfig socketConfig = socketConfigBuilder.build();
 
-        httpClientBuilder.setRetryHandler(new DefaultHttpRequestRetryHandler(config.getRetryTimes(),
-                true));
-        createCookie(httpClientBuilder, config);
-        return httpClientBuilder.build();
-    }
+		httpClientBuilder.setDefaultSocketConfig(socketConfig);
+		connectionManager.setDefaultSocketConfig(socketConfig);
 
-    private void createCookie(HttpClientBuilder httpClientBuilder, TaskConfig config){
-        if(config.isDisableCookieManagement()){
-            httpClientBuilder.disableCookieManagement();
-            return;
-        }
+		httpClientBuilder.setRetryHandler(new DefaultHttpRequestRetryHandler(config.getRetryTimes(), true));
+		createCookie(httpClientBuilder, config);
+		return httpClientBuilder.build();
+	}
 
-        CookieStore cookieStore = new BasicCookieStore();
-        for(Map.Entry<String, String> cookieEntry : config.getCookies().entrySet()){
-            BasicClientCookie cookie = new BasicClientCookie(cookieEntry.getKey(), cookieEntry.getValue());
-            cookie.setDomain(config.getDomain());
-            cookieStore.addCookie(cookie);
-        }
-        httpClientBuilder.setDefaultCookieStore(cookieStore);
-    }
+	private void createCookie(HttpClientBuilder httpClientBuilder, TaskConfig config) {
+		if (config.isDisableCookieManagement()) {
+			httpClientBuilder.disableCookieManagement();
+			return;
+		}
+
+		CookieStore cookieStore = new BasicCookieStore();
+		for (Map.Entry<String, String> cookieEntry : config.getCookies().entrySet()) {
+			BasicClientCookie cookie = new BasicClientCookie(cookieEntry.getKey(), cookieEntry.getValue());
+			cookie.setDomain(config.getDomain());
+			cookieStore.addCookie(cookie);
+		}
+		httpClientBuilder.setDefaultCookieStore(cookieStore);
+	}
 }

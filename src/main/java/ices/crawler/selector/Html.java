@@ -1,6 +1,6 @@
 package ices.crawler.selector;
 
-import com.sun.org.apache.xerces.internal.dom.ElementNSImpl;
+import org.apache.log4j.Logger;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -13,6 +13,8 @@ import java.util.List;
  * Created by Neuclil on 17-6-15.
  */
 public class Html extends HtmlNode {
+	
+	private final static Logger LOGGER = Logger.getLogger(Html.class);
 
     private static volatile boolean INITED = false;
 
@@ -35,7 +37,7 @@ public class Html extends HtmlNode {
             this.document = Jsoup.parse(text, url);
         } catch (Exception e) {
             this.document = null;
-            e.printStackTrace();
+            LOGGER.warn("parse document error", e);
         }
     }
 
@@ -45,7 +47,7 @@ public class Html extends HtmlNode {
             this.document = Jsoup.parse(text);
         } catch (Exception e) {
             this.document = null;
-            e.printStackTrace();
+            LOGGER.warn("parse document error", e);
         }
     }
 

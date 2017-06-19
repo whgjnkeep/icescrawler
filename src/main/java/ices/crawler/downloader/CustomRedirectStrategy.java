@@ -9,28 +9,31 @@ import org.apache.http.client.methods.HttpRequestWrapper;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.impl.client.LaxRedirectStrategy;
 import org.apache.http.protocol.HttpContext;
+import org.apache.log4j.Logger;
 
 import java.net.URI;
 
 public class CustomRedirectStrategy extends LaxRedirectStrategy {
 
-    @Override
-    public HttpUriRequest getRedirect(HttpRequest request, HttpResponse response, HttpContext context) throws ProtocolException {
-        URI uri = getLocationURI(request, response, context);
-        String method = request.getRequestLine().getMethod();
-        if ("post".equalsIgnoreCase(method)) {
-            try {
-                HttpRequestWrapper httpRequestWrapper = (HttpRequestWrapper) request;
-                httpRequestWrapper.setURI(uri);
-                httpRequestWrapper.removeHeaders("Content-Length");
-                return httpRequestWrapper;
-            } catch (Exception e) {
-                //
+	private final static Logger LOGGER = Logger.getLogger(CustomRedirectStrategy.class);
 
-            }
-            return new HttpPost(uri);
-        } else {
-            return new HttpGet(uri);
-        }
-    }
+	@Override
+	public HttpUriRequest getRedirect(HttpRequest request, HttpResponse response, HttpContext context)
+			throws ProtocolException {
+		URI uri = getLocationURI(request, response, context);
+		String method = request.getRequestLine().getMethod();
+		if ("post".equalsIgnoreCase(method)) {
+			try {
+				HttpRequestWrapper httpRequestWrapper = (HttpRequestWrapper) request;
+				httpRequestWrapper.setURI(uri);
+				httpRequestWrapper.removeHeaders("Content-Length");
+				return httpRequestWrapper;
+			} catch (Exception e) {
+				LOGGER.error("强转为HttpRequestWrapper出错");
+			}
+			return new HttpPost(uri);
+		} else {
+			return new HttpGet(uri);
+		}
+	}
 }
